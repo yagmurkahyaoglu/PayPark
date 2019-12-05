@@ -13,17 +13,22 @@ import com.google.gson.JsonParser;
 
 public class Database {
 
-	String QRFile = "C:\\Users\\casper\\workspace\\CarPark\\src\\QRCodes";
-	String balanceFile = "C:\\Users\\casper\\workspace\\CarPark\\src\\Balance";
+	String QRFile = "QRCodes";
+	String balanceFile = "Balance";
+	File file1 = new File(QRFile);
+	File file2 = new File(balanceFile);
 	BinarySemaphore mutexQR;
 	BinarySemaphore mutexMoney;
+	boolean isGateUsed = false;
 
 	public Database() {
-		mutexQR = new BinarySemaphore(false);
-		mutexMoney = new BinarySemaphore(false);
+		mutexQR = new BinarySemaphore(true);
+		mutexMoney = new BinarySemaphore(true);
 	}
 
 	public String openRecord(String line) {
+		
+		this.mutexQR.P();
 
 		JsonObject jsonObject = new JsonParser().parse(line).getAsJsonObject();
 		int code = jsonObject.get("QR").getAsInt();
@@ -75,10 +80,15 @@ public class Database {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		this.mutexQR.V();
+
 		return message.toString();
 	}
 
 	public void updateBalance(String line) {
+		
+		this.mutexMoney.P();
 
 		JsonObject jsonObject = new JsonParser().parse(line).getAsJsonObject();
 		int payment = jsonObject.get("fareAmount").getAsInt();
@@ -108,10 +118,14 @@ public class Database {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		this.mutexMoney.V();
 
 	}
 
 	public String closeRecord(String line) {
+		
+		this.mutexQR.P();
 
 		JsonObject jsonObject = new JsonParser().parse(line).getAsJsonObject();
 		int code = jsonObject.get("QR").getAsInt();
@@ -160,11 +174,37 @@ public class Database {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		this.mutexQR.V();
+
+		return message.toString();
+	}
+	
+	public String gateAvailability(){
+		JsonObject message = new JsonObject();
+		if(this.isGateUsed) {
+			message.addProperty("status", "failure");
+		} else {
+			isGateUsed = true;
+			try {
+				Thread.sleep(3000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			message.addProperty("status", "success");
+			isGateUsed = false;
+		}
 		return message.toString();
 	}
 
 	public int calculatePayment(long minutes) {
-		return 5;
+		int hours = (int) (minutes/60);
+		if(hours == 0) {
+			return 10;
+		} else {
+			return 15 + (hours-1)*10;
+		}
 	}
 
 }
